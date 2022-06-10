@@ -5,17 +5,17 @@ close all
 plot_sim = 1;
 plot_species2 = 0;
 pause_time = .01;
-disp_particles = 1;
-nspecies = 1;
+disp_particles = 0;
+nspecies = 2;
 nx = 30;
 lx = 4.0*pi;
 dx = lx/nx;
 numElectrons = 10000;
 numIons = 10000;
-nt = 100;
+nt = 1000;
 skip = 1;
 
-dt = 0.1*1.467;
+dt = 1.0;
 
 x_centre = linspace(dx/2,lx-dx/2,nx);
 x_face = linspace(0,lx,nx+1);
@@ -186,7 +186,7 @@ semilog_t = dt*(1:nt);
 %semilogy(semilog_t(elec_energy_rate > 0), 1.3 * elec_energy_rate(elec_energy_rate > 0) / max(elec_energy_rate));
 semilogy(dt*(1:nt), lo_elec_energy_sum);
 x = dt*(1:nt-1);
-y = max(lo_elec_energy_sum) * exp(x * (-0.155));
+y = max(lo_elec_energy_sum) * exp(x * (0.0155));
 semilogy(x,y);
 %ylim([1e-1 1]);
 title('log plot of E field energy');

@@ -39,13 +39,13 @@ int main()
   debug_config1.species_T = { 1.0 , 1.0 };
 
   Config landau1;
-  landau1.nspecies = 2;
+  landau1.nspecies = 1;
   landau1.np = (int) 10000;
   landau1.nx = 30;
   landau1.nv = { 50 , 50 };
   landau1.lx = 4.0 * M_PI;
-  landau1.dt = 1.0; //1.0 * 0.01 * 1.467;
-  landau1.time_total = 100 * landau1.dt;
+  landau1.dt = 0.1; //1.0 * 0.01 * 1.467;
+  landau1.time_total = 10;
   landau1.species_name = { "electron", "ion" };
   landau1.species_dens_avg = { 1.0, 1.0 };
   landau1.species_dens_perturb = { 0.1, 0.0 };
@@ -66,7 +66,7 @@ int main()
   twobeam1.nv = { 50 };
   twobeam1.lx = 1.0;
   twobeam1.dt = 1.0;
-  twobeam1.time_total = 100 * twobeam1.dt;
+  twobeam1.time_total = 30.0;
   twobeam1.species_name = {"electron", "ion"};
   twobeam1.species_dens_avg = { 1.0, 1.0 };
   twobeam1.species_dens_perturb = { 0.1, 0.0 };
@@ -82,20 +82,20 @@ int main()
 
   Config shockwave1;
   shockwave1.nspecies = 2;
-  shockwave1.np = 256*40;
-  shockwave1.nx = 144;
+  shockwave1.np = 10000;
+  shockwave1.nx = 30;
   shockwave1.nv = {50, 5000};
-  shockwave1.lx = 144.0;
-  shockwave1.dt = 0.4;
-  shockwave1.time_total = 1 * shockwave1.dt;
+  shockwave1.lx = 30.0;
+  shockwave1.dt = 1.0;
+  shockwave1.time_total = 64;
   shockwave1.species_name = {"electron", "ion"};
   shockwave1.species_dens_avg = {1.0, 1.0};
   shockwave1.species_dens_perturb = {0.1, 0.4};
   shockwave1.species_dens_perturb_profile = {"sin", "sin"};
-  shockwave1.species_vel_profile = {"boltzmann", "two_beams"};
+  shockwave1.species_vel_profile = {"boltzmann", "boltzmann"};
   shockwave1.species_vel_avg = { 0.0, 0.0223};
-  shockwave1.species_vel_range = { 8.0, 0.02 };
-  shockwave1.species_vel_perturb = { 0.0, 0.01 };
+  shockwave1.species_vel_range = { 8.0, 0.2 };
+  shockwave1.species_vel_perturb = { 0.0, 0.1 };
   shockwave1.species_vel_perturb_profile = {"sin", "sin"};
   shockwave1.species_charge = { -1.0, 1.0 };
   shockwave1.species_mass = { 1.0, 2000.0 };
@@ -105,18 +105,18 @@ int main()
 
   //==================================================================
 
-  bool write_posvel = true;
-  int skip = 1;
-  int test_config_index = 2;
+  bool write_posvel = false;
+  int skip = 100;
+  int test_config_index = 1;
 
   // use direct method accelerator?
   bool accelerate = false;
 
   // gpu kernel path
-  configs[test_config_index].push_kernel_path =  "./push_kernel_1.cl";
+  configs[test_config_index].push_kernel_path =  "./test_kernel.cl";
 
   // create plasma object and associated species objects
-  configs[test_config_index].create_plasma("cpu_sthread");
+  configs[test_config_index].create_plasma("gpu");
 
   std::vector<double>runtime_data = configs[test_config_index].run_plasma(accelerate, skip, write_posvel);
 

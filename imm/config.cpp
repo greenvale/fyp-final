@@ -172,6 +172,9 @@ public:
   {
     //plasma_ptr->print_vals(0, skip, write_posvel);
 
+    // Clear dt file
+    std::ofstream dt_file("./output/dt.txt", std::ofstream::out | std::ofstream::trunc);
+
     double start_time = omp_get_wtime();
     double dt_evolve_target;
     double dt_evolve;
@@ -211,6 +214,15 @@ public:
             sim_time += dt_evolve;
 
             plasma_ptr->print_methods_tracker(0);
+
+            // Print dt
+            std::ofstream dt_file("./output/dt.txt", std::ofstream::out | std::ofstream::app);
+            for (int i = 0; i < nx + 1; i++)
+            {
+                dt_file.width(15);
+                dt_file << dt_evolve << "\t";
+            }
+            dt_file.close();
         }
         else
         {

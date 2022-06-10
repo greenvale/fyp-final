@@ -180,11 +180,18 @@ void Plasma::init_lo()
     // calculate charge density
     for (int i = 0; i < nx; ++i)
     {
-        charge_dens_init[i] = -species_charge[0];
+        if (nspecies == 1)
+        {
+            charge_dens_init[i] = -species_charge[0];
+        }
+        else
+        {
+            charge_dens_init[i] = 0.0;
+        }
         for (int alfa = 0; alfa < nspecies; ++alfa)
         {
-        double* dens_init = species_ptrs[alfa]->get_dens_ptr();
-        charge_dens_init[i] += species_charge[alfa] * dens_init[2*i + 0];
+            double* dens_init = species_ptrs[alfa]->get_dens_ptr();
+            charge_dens_init[i] += species_charge[alfa] * dens_init[2*i + 0];
         }
     }
 

@@ -1071,8 +1071,8 @@ void Species::push_sthread(const bool& accelerate, const double& dt_new)
         }
 
         // accumulate avgmom for this substep
-        accumulate_avgmom(avgmom, dsubvel, shape_lhface, shape_rhface, subvel, subcell, dsubt);
-        //accumulate_avgmom_with_single(avgmom, avgmom_single, dsubvel, shape_lhface, shape_rhface, subvel, subcell, dsubt, pflag);
+        //accumulate_avgmom(avgmom, dsubvel, shape_lhface, shape_rhface, subvel, subcell, dsubt);
+        accumulate_avgmom_with_single(avgmom, avgmom_single, dsubvel, shape_lhface, shape_rhface, subvel, subcell, dsubt, pflag);
 
         // step particle values
         substep(
