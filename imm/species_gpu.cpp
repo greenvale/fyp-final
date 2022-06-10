@@ -8,7 +8,7 @@
 
 void Species::push_gpu(const bool& accelerate)
 {
-  int kernel_reduce_method = 2;
+  int kernel_reduce_method = 1;
 
   // create scheme params variable
   params scheme_params;
@@ -19,7 +19,7 @@ void Species::push_gpu(const bool& accelerate)
   scheme_params.charge = charge;
   scheme_params.weight = weight;
   scheme_params.accelerate = (int) accelerate;
-  scheme_params.pic_tol = 0.001;
+  scheme_params.pic_tol = 0.0001;
 
   // get host float arrays of pos, vel and elec
   for (int p = 0; p < np; ++p)

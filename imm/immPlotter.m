@@ -5,8 +5,8 @@ close all
 plot_sim = 1;
 plot_species2 = 0;
 pause_time = .01;
-disp_particles = 0;
-nspecies = 2;
+disp_particles = 1;
+nspecies = 1;
 nx = 30;
 lx = 4.0*pi;
 dx = lx/nx;

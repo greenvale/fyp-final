@@ -149,15 +149,15 @@ Species::Species(
                     pos[p_ind] = x_centre[i] + (((double) rand() / RAND_MAX) - 0.5) * dx;
                     if (vel_perturb_profile == "sin")
                     {
-                    perturb_factor = sin(2.0 * M_PI * pos[p_ind] / lx);
+                        perturb_factor = sin(2.0 * M_PI * pos[p_ind] / lx);
                     }
                     else if (vel_perturb_profile == "cos")
                     {
-                    perturb_factor = cos(2.0 * M_PI * pos[p_ind] / lx);
+                        perturb_factor = cos(2.0 * M_PI * pos[p_ind] / lx);
                     }
                     else
                     {
-                    perturb_factor = 0.0;
+                        perturb_factor = 0.0;
                     }
                     //std::cout << "vel perturb: " << vel_perturb << std::endl;
                     //std::cout << "vel shape: " << vel_perturb_profile << std::endl;
@@ -351,8 +351,10 @@ Species::Species(
 -> nstress (time k+1/2),
 -> gamma (time k+1/2)
 */
-void Species::accumulate_moments()
+void Species::accumulate_moments(const double& dt_target)
 {
+    dt = dt_target;
+
     // initialise runtime variables
     double scaled_pos;
     double scaled_pos_new;
@@ -455,6 +457,8 @@ void Species::accumulate_moments()
         stress[2*cell_lhcentre  + 1]  += vel_new[p] * vel_new[p] * shape_lhcentre;
         stress[2*cell_midcentre + 1]  += vel_new[p] * vel_new[p] * shape_midcentre;
         stress[2*cell_rhcentre  + 1]  += vel_new[p] * vel_new[p] * shape_rhcentre;
+
+        //std::cout << vel_new[p] << std::endl;
     }
 
     for (int i = 0; i < nx; ++i)
@@ -466,7 +470,8 @@ void Species::accumulate_moments()
     }
     for (int i = 0; i < nx + 1; ++i)
     {
-        mom[2*nx + 1] *= wt_inv_dx;
+        mom[2*i + 1] *= wt_inv_dx;
+        //std::cout << "Stress: " << mom[2*i + 1] << std::endl;
     }
 
     // periodic boundary condition
@@ -484,8 +489,8 @@ void Species::accumulate_moments()
         // catch NaN error - this shouldn't have to be used unless there is bad distribution of particles
         if (dens[2*i + 0] + dens[2*i + 1] == 0)
         {
-        nstress[i] = 1.0;
-        std::cout << "CAUGHT NAN ERROR" << std::endl;
+            nstress[i] = 1.0;
+            std::cout << "CAUGHT NAN ERROR" << std::endl;
         }
     }
     for (int i = 0; i < nx; ++i)
@@ -493,13 +498,13 @@ void Species::accumulate_moments()
         // calculate necessary indices for RH centre cells for dens and nstress
         if (i < nx - 1)
         {
-        lh_centre = i;
-        rh_centre = i + 1;
+            lh_centre = i;
+            rh_centre = i + 1;
         }
         else
         {
-        lh_centre = nx - 1;
-        rh_centre = 0;
+            lh_centre = nx - 1;
+            rh_centre = 0;
         }
         // calculate gamma @ RH face
         // requires: avgmom + mom @ RH face of this cell
@@ -513,11 +518,13 @@ void Species::accumulate_moments()
 
         gamma[i] /= 0.5 * (dens[2*lh_centre + 1] + dens[2*rh_centre + 1]);
 
+        //std::cout << (dens[2*lh_centre + 1] + dens[2*rh_centre + 1]) << std::endl;
+
         // catch NaN error - this shouldn't have to be used unless there is bad distribution of particles
         if (dens[2*lh_centre + 1] + dens[2*rh_centre + 1] == 0.0)
         {
-        gamma[i] = 1.0;
-        std::cout << "CAUGHT NAN ERROR" << std::endl;
+            gamma[i] = 1.0;
+            std::cout << "CAUGHT NAN ERROR" << std::endl;
         }
     }
 }
@@ -1064,8 +1071,8 @@ void Species::push_sthread(const bool& accelerate, const double& dt_new)
         }
 
         // accumulate avgmom for this substep
-        //accumulate_avgmom(avgmom, dsubvel, shape_lhface, shape_rhface, subvel, subcell, dsubt);
-        accumulate_avgmom_with_single(avgmom, avgmom_single, dsubvel, shape_lhface, shape_rhface, subvel, subcell, dsubt, pflag);
+        accumulate_avgmom(avgmom, dsubvel, shape_lhface, shape_rhface, subvel, subcell, dsubt);
+        //accumulate_avgmom_with_single(avgmom, avgmom_single, dsubvel, shape_lhface, shape_rhface, subvel, subcell, dsubt, pflag);
 
         // step particle values
         substep(
@@ -1120,14 +1127,14 @@ void Species::step()
         // project future values to new current values for density and stress
         for (int i = 0; i < nx; ++i)
         {
-        dens[2*i + 0]   = dens[2*i + 1];
-        stress[2*i + 0] = stress[2*i + 1];
+            dens[2*i + 0]   = dens[2*i + 1];
+            stress[2*i + 0] = stress[2*i + 1];
 
-        dens_single[2*i + 0]   = dens_single[2*i + 1];
+            dens_single[2*i + 0]   = dens_single[2*i + 1];
         }
         for (int i = 0; i < nx + 1; ++i)
         {
-        mom[2*i + 0]    = mom[2*i + 1];
+            mom[2*i + 0]    = mom[2*i + 1];
         }
     }
 }

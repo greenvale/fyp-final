@@ -132,7 +132,7 @@ Species(
 // dtor
 ~Species();
 
-void accumulate_moments();
+void accumulate_moments(const double& dt_target);
 
 // push subfunctions
 void adaptive_push(

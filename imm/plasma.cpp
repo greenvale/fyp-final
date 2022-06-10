@@ -33,8 +33,7 @@ Plasma::Plasma(
     const std::string& _device_type,
     const int& _nspecies,
     const int& _nx,
-    const double& _lx,
-    const double& _dt
+    const double& _lx
 )
 {
     device_type = _device_type;
@@ -45,8 +44,6 @@ Plasma::Plasma(
     nx = _nx;
     lx = _lx;
     dx = lx / nx;
-    dt = _dt;
-    dt_target = dt;
 
     // calculate x_face and x_centre;
     x_face = new double[nx + 1];
@@ -140,7 +137,7 @@ initialise lo system after adding all species
 */
 void Plasma::init_lo()
 {
-    dt_reduce_factor = 1;
+    bool print_init = true;
 
     // use ho density and momentum for first current timestep (k = 0)
     // and set this as the solution vector for purposes of residual calculation
@@ -183,7 +180,7 @@ void Plasma::init_lo()
     // calculate charge density
     for (int i = 0; i < nx; ++i)
     {
-        charge_dens_init[i] = 0.0;
+        charge_dens_init[i] = -species_charge[0];
         for (int alfa = 0; alfa < nspecies; ++alfa)
         {
         double* dens_init = species_ptrs[alfa]->get_dens_ptr();
@@ -241,30 +238,31 @@ void Plasma::init_lo()
         avgmom_file.close();
     }
 
-    // print LO dens for t=0 for each species
-    /*
-    for (int alfa = 0; alfa < nspecies; alfa++)
+    if (print_init == true)
     {
-        std::ofstream dens_file("./output/lo_" + species_name[alfa] + "_dens.txt", std::ofstream::out | std::ofstream::app);
-        for (int i = 0; i < nx; i++)
+        // print LO dens for t=0 for each species
+        for (int alfa = 0; alfa < nspecies; alfa++)
         {
-        dens_file.width(15);
-        dens_file << lo_dens[cind(i + alfa*(nx), 0, nspecies*(nx))] << "\t";
+            std::ofstream dens_file("./output/lo_" + species_name[alfa] + "_dens.txt", std::ofstream::out | std::ofstream::app);
+            for (int i = 0; i < nx; i++)
+            {
+            dens_file.width(15);
+            dens_file << lo_dens[cind(i + alfa*(nx), 0, nspecies*(nx))] << "\t";
+            }
+            dens_file << std::endl;
+            dens_file.close();
         }
-        dens_file << std::endl;
-        dens_file.close();
-    }
 
-    // print electric field for t=0
-    std::ofstream elec_file("./output/lo_elec.txt", std::ofstream::out | std::ofstream::app);
-    for (int i = 0; i < nx + 1; i++)
-    {
-        elec_file.width(15);
-        elec_file << elec[rind(i, 0, 2)] << "\t";
+        // print electric field for t=0
+        std::ofstream elec_file("./output/lo_elec.txt", std::ofstream::out | std::ofstream::app);
+        for (int i = 0; i < nx + 1; i++)
+        {
+            elec_file.width(15);
+            elec_file << elec[rind(i, 0, 2)] << "\t";
+        }
+        elec_file << std::endl;
+        elec_file.close();
     }
-    elec_file << std::endl;
-    elec_file.close();
-    */
 }
 
 // ====================================================================
@@ -274,124 +272,248 @@ void Plasma::init_lo()
     - Solve LO system
     - Push particles in HO systems
 */
-void Plasma::evolve(const bool& accelerate)
+double Plasma::evolve(const bool& accelerate, const double& dt_target)
 {
-    // initialise outer loop flag and index
-    outer_flag = false;
-    outer_index = -1;
+    // How should inconsistency error be dealt with (1 = drop time-step; 2 = recalculate electric field with Poisson with no drop in step)
+    int INCONSISTENCY_FIX_METHOD = 1;
 
-    quit_evolve = 0;
+    int evolve_index = -1;
 
-    std::cout << "TIMESTEP: " << dt << std::endl;
+    bool evolved = false;
+    int dt_reduce_factor = -1;
+    double ho_lo_diff_tol = 0.01;
 
-    // outer Picard loop
-    while (outer_flag == false)
+    // Iterative evolve loop
+    while (evolved == false)
     {
-        // increment outer index
-        outer_index++;
+        evolve_index++;
+        dt_reduce_factor++;
 
-        dt = dt_target / pow(2, dt_reduce_factor);
-
-        std::cout << "======>> Outer Picard iteration " << outer_index << std::endl;
-
-        // accumulate HO moments
-        for (int alfa = 0; alfa < nspecies; alfa++)
+        if (evolve_index > 5)
         {
-        // check target device and run corresponding function
-        species_ptrs[alfa]->accumulate_moments();
-        }
-
-        std::cout << "Finished momentum accumulation" << std::endl;
-
-        // only calculate LO system once particles pushed
-        if (outer_index > 0)
-        {
-        // initialise inner LO Picard loop flag and index
-        lo_flag = false;
-        lo_index = -1;
-
-        // solve LO system using inner LO Picard loop
-        while (lo_flag == false)
-        {
-            // increment LO index
-            lo_index++;
-            std::cout << "==>> LO inner Picard iteration " << lo_index << ": ";
-
-            // Update A and b matrices
-            update_A();
-            update_b();
-            // solve LO system and return residual norm prior to solving to track convergence
-            lo_residual_norm = solve_lo();
-
-            // outer residual norm is the first residual for solving the LO system, it shows how converged the outer system is
-            if (lo_index == 0)
+            while(true)
             {
-            outer_residual_norm = lo_residual_norm;
-            //std::cout << "Outer residual norm: " << outer_index << ": " << outer_residual_norm << std::endl;
-            }
 
-            // if LO residual norm is below tolerance, terminate the inner LO Picard loop
-            if (lo_residual_norm < tol_lo_residual_norm)
-            {
-            lo_flag = true;
-            }
-            // if LO fails to converge then there is consistency error - therefore the timestep will be reduced and current evolve should be quit
-            if (lo_index > inner_max)
-            {
-            quit_evolve = 1;
             }
         }
 
-        std::cout << "LO system has been solved" << std::endl;
-        }
-
-        // push particles in HO system and calculate HO avgmom, unless evolve has been invalidated
-        if (quit_evolve == 0)
+        // calculate timestep and set class object dt variable
+        if (INCONSISTENCY_FIX_METHOD == 1)
         {
-        for (int alfa = 0; alfa < nspecies; alfa++)
-        {
-            // cpu single thread
-            if (device_type == "cpu_sthread")
-            {
-            species_ptrs[alfa]->push_sthread(accelerate, dt);
-            }
-            // cpu multiple thread
-            else if (device_type == "cpu_mthread")
-            {
-            species_ptrs[alfa]->push_mthread(accelerate);
-            }
-            // gpu
-            else if (device_type == "gpu")
-            {
-            species_ptrs[alfa]->push_gpu(accelerate);
-            }
-        }
-        }
-
-        std::cout << "Particles have been pushed" << std::endl;
-
-        // if the outer system has failed to converge then quit evolve as there is consistency error
-        if (outer_index >= outer_max)
-        {
-            quit_evolve = 1;
-        }
-
-        if (quit_evolve == 1)
-        {
-            // exit outer system and increase reduce factor
-        outer_flag = true;
-        dt_reduce_factor += 1;
+            dt = dt_target / pow(2, dt_reduce_factor);
         }
         else
         {
-        if ((outer_residual_norm < tol_outer_residual_norm) && (outer_index > 0))
-        {
-            outer_flag = true;
-            // reset reduce factor to 1 as timestep has been evolved successfully
-            dt_reduce_factor = 1;
+            dt = dt_target;
         }
+
+        std::cout << "=================== EVOLVE ITERATION " << evolve_index << std::endl;
+        std::cout << "Evolving with dt = " << dt << std::endl;
+
+        // Set future LO values to be same as current LO values
+        for (int i = 0; i < nx; i++)
+        {
+            for (int alfa = 0; alfa < nspecies; alfa++)
+            {
+                lo_dens[cind(i + alfa*(nx), 1, nspecies*(nx))] = lo_dens[cind(i + alfa*(nx), 0, nspecies*(nx))];
+            }
+            // requires: elec @ RH face
+            elec[rind(i + 1, 1, 2)] = elec[rind(i + 1, 0, 2)];
+        }
+        elec[rind(0, 1, 2)] = elec[rind(0, 0, 2)];
+
+        // initialise outer loop flag and index
+        outer_flag = false;
+        outer_index = -1;
+        bool quit_evolve = false;
+
+        // outer Picard loop
+        while (outer_flag == false)
+        {
+            // increment outer index
+            outer_index++;
+
+            std::cout << "======>> Outer Picard iteration " << outer_index << std::endl;
+
+            // =========================================
+            // ACCUMULATE HO MOMENTS
+            for (int alfa = 0; alfa < nspecies; alfa++)
+            {
+                // check target device and run corresponding function
+                species_ptrs[alfa]->accumulate_moments(dt);
+            }
+
+            std::cout << "Finished momentum accumulation" << std::endl;
+
+            // =========================================
+            // SOLVE LO SYSTEM
+            // initialise inner LO Picard loop flag and index
+            if (outer_index > 0)
+            {
+                lo_flag = false;
+                lo_index = -1;
+
+                // solve LO system using inner LO Picard loop
+                while (lo_flag == false)
+                {
+                    // increment LO index
+                    lo_index++;
+                    std::cout << "==>> LO inner Picard iteration " << lo_index << ": ";
+
+                    // Update A and b matrices
+                    update_A();
+                    update_b();
+                    
+                    // solve LO system and return residual norm prior to solving to track convergence
+                    lo_residual_norm = solve_lo();
+
+                    // outer residual norm is the first residual for solving the LO system, it shows how converged the outer system is
+                    if (lo_index == 0)
+                    {
+                        outer_residual_norm = lo_residual_norm;
+                        //std::cout << "Outer residual norm: " << outer_index << ": " << outer_residual_norm << std::endl;
+                    }
+
+                    // if LO residual norm is below tolerance, terminate the inner LO Picard loop
+                    if (lo_residual_norm < tol_lo_residual_norm)
+                    {
+                        lo_flag = true;
+                    }
+                    // if LO fails to converge then there is consistency error - therefore the timestep will be reduced and current evolve should be quit
+                    if (lo_index > inner_max)
+                    {
+                        quit_evolve = true;
+                        lo_flag = true;
+                    }
+                }
+                std::cout << "LO system has been solved" << std::endl;
+            }
+
+            /*
+            for (int i = 0; i < nx + 1; ++i)
+            {
+                std::cout << "Elec[" << i << "]: " << elec[2*i + 0] << "; " << elec[2*i + 1] << std::endl;
+            }
+            */
+
+            // =========================================
+            // push particles in HO system and calculate HO avgmom, unless evolve has been invalidated
+            if (quit_evolve == false)
+            {
+                for (int alfa = 0; alfa < nspecies; alfa++)
+                {
+                    // cpu single thread
+                    if (device_type == "cpu_sthread")
+                    {
+                        species_ptrs[alfa]->push_sthread(accelerate, dt);
+                    }
+                    // cpu multiple thread
+                    else if (device_type == "cpu_mthread")
+                    {
+                        species_ptrs[alfa]->push_mthread(accelerate);
+                    }
+                    // gpu
+                    else if (device_type == "gpu")
+                    {
+                        species_ptrs[alfa]->push_gpu(accelerate);
+                    }
+                }
+            }
+
+            std::cout << "Particles have been pushed" << std::endl;
+
+            // =========================================
+            // if the outer system has failed to converge then quit evolve as there is consistency error
+            if (outer_index >= outer_max)
+            {
+                quit_evolve = true;
+            }
+            
+            // check if evolve needs to be quitted
+            if (quit_evolve == true)
+            {
+                // exit outer system and increase reduce factor
+                outer_flag = true;
+            }
+            // check if outer system converged
+            if ((outer_residual_norm < tol_outer_residual_norm) && (outer_index > 0))
+            {
+                outer_flag = true;
+            }
+        }
+
+        // Check if LO and HO systems have converged to determine if evolve should finish
+        double dens_diff = 0.0;
+        double avgmom_diff = 0.0;
+        for (int alfa = 0; alfa < nspecies; ++alfa)
+        {
+            ho_dens = species_ptrs[alfa]->get_dens_ptr();
+            ho_avgmom = species_ptrs[alfa]->get_avgmom_ptr();
+
+            for (int i = 0; i < nx; ++i)
+            {
+                dens_diff += fabs(lo_dens[cind(i + alfa*(nx), 1, nspecies*(nx))] - ho_dens[2*i + 1]);
+                avgmom_diff += fabs(lo_avgmom[i+1 + alfa*(nx+1)] - ho_avgmom[i+1]);
+            }
+            avgmom_diff += fabs(lo_avgmom[0] - ho_avgmom[0]);
+        }
+        std::cout << "HO/LO DENS DIFF: " << dens_diff << std::endl;
+        std::cout << "HO/LO AVGMOM DIFF: " << avgmom_diff << std::endl;
+
+        // If LO and HO consistent then exit evolve loop
+        if (((dens_diff + avgmom_diff)/(2*nspecies*(nx+1)) < ho_lo_diff_tol) && (quit_evolve == false))
+        {
+            evolved = true;
+        }
+        else
+        {
+            if (INCONSISTENCY_FIX_METHOD == 2)
+            {
+                std::cout << "Recalculating electric field" << std::endl;
+                // Reset problem with new eletric field recalculated with charge distribution
+                // initialise eletric field calculation using Poisson equation
+                double* charge_dens_init = new double[nx];
+
+                // calculate charge density
+                for (int i = 0; i < nx; ++i)
+                {
+                    charge_dens_init[i] = 0.0;
+                    for (int alfa = 0; alfa < nspecies; ++alfa)
+                    {
+                    double* dens_init = species_ptrs[alfa]->get_dens_ptr();
+                    charge_dens_init[i] += species_charge[alfa] * dens_init[2*i + 0];
+                    }
+                }
+
+                // integration of charge density to get E (from dE/dx = charge dens / e0)
+                // E(i+1/2) = E(i-1/2) + (dt * chargeDens[i] / e0)
+                elec[rind(0, 0, 2)] = 0.0;
+                for (int i = 0; i < nx; ++i)
+                {
+                    elec[rind(i + 1, 0, 2)] = charge_dens_init[i]*(dx / constants::e0) + elec[rind(i, 0, 2)];
+                }
+                elec[rind(0, 0, 2)] = elec[rind(0, 0, 2)] + elec[rind(nx-1, 0, 2)] - elec[rind(nx, 0, 2)];
+
+                // calculate average electric field to make the field zero at the mid domain
+                double avg_elec = 0.0;
+                for (int i = 0; i < nx + 1; ++i)
+                {
+                    avg_elec += elec[rind(i, 0, 2)];
+                }
+                avg_elec /= (nx + 1);
+
+                // translate electric field to be zero at the mid domain
+                for (int i = 0; i < nx + 1; ++i)
+                {
+                    elec[rind(i, 0, 2)] -= avg_elec;
+                }
+
+                delete[] charge_dens_init;
+            }
         }
     }
+
+    return dt;
 }
 
 // ====================================================================
@@ -486,7 +608,7 @@ void Plasma::update_A()
   A_opfile << "########################################################################" << std::endl;
   A_opfile << std::endl;
   A_opfile.close();
-*/
+ */
 }
 
 // ====================================================================
@@ -538,10 +660,10 @@ void Plasma::update_b() {
         // NEW : averaged component (using previous Picard iteration)
         for (int alfa = 0; alfa < nspecies; ++alfa)
         {
-        for (int j = 0; j < nx + 1; ++j)
-        {
-            b[i + nspecies*(2*nx)] += species_charge[alfa] * (1.0 / (nx + 1)) * (lo_avgmom[j + alfa*(nx+1)]);
-        }
+            for (int j = 0; j < nx + 1; ++j)
+            {
+                b[i + nspecies*(2*nx)] += species_charge[alfa] * (1.0 / (nx + 1)) * (lo_avgmom[j + alfa*(nx+1)]);
+            }
         }
     }
 
@@ -640,10 +762,8 @@ double Plasma::solve_lo()
 void Plasma::step() {
     // equate density for old future timestep to HO density for old future timestep and move to new current timestep
     // set solution vector to be same as current values for residual
-    if (quit_evolve == 0)
+    for (int alfa = 0; alfa < nspecies; alfa++)
     {
-        for (int alfa = 0; alfa < nspecies; alfa++)
-        {
         ho_dens = species_ptrs[alfa]->get_dens_ptr();
         ho_avgmom = species_ptrs[alfa]->get_avgmom_ptr();
         for (int i = 0; i < nx; i++) {
@@ -656,42 +776,24 @@ void Plasma::step() {
             soln[i + alfa*(2*nx)] = ho_dens[2*i + 1];
             soln[i + (nx) + alfa*(2*nx)] = ho_avgmom[i+1];
         }
-        // periodic boundary condition for avgmom LH face for cell i=0
-        //lo_avgmom[0 + alfa*(nx+1)] = ho_avgmom[0];
-        }
-
-            // transfer electric field from old future timestep to new current timestep
-            for (int i = 0; i < nx; i++)
-            {
-            elec[rind(i + 1, 0, 2)] = elec[rind(i + 1, 1, 2)];
-
-            // use old future electric field for future solution vector for calculating initial outer residual
-            soln[i + nspecies*(2*nx)] = elec[rind(i + 1, 1, 2)];
-        }
-        // periodic boundary condition: elec @ LH face of cell i=0
-        elec[rind(0, 0, 2)] = elec[rind(0, 1, 2)];
+        lo_avgmom[0 + alfa*(nx+1)] = ho_avgmom[0];
     }
 
-    // estimate new future LO values for density and electric field (required for LO system solve first iteration)
+    // transfer electric field from old future timestep to new current timestep
     for (int i = 0; i < nx; i++)
     {
-        for (int alfa = 0; alfa < nspecies; alfa++)
-        {
-            lo_dens[cind(i + alfa*(nx), 1, nspecies*(nx))] = lo_dens[cind(i + alfa*(nx), 0, nspecies*(nx))];
-        }
-        // requires: elec @ RH face
-        elec[rind(i + 1, 1, 2)] = elec[rind(i + 1, 0, 2)];
+        elec[rind(i + 1, 0, 2)] = elec[rind(i + 1, 1, 2)];
+
+        // use old future electric field for future solution vector for calculating initial outer residual
+        soln[i + nspecies*(2*nx)] = elec[rind(i + 1, 1, 2)];
     }
     // periodic boundary condition: elec @ LH face of cell i=0
-    elec[rind(0, 1, 2)] = elec[rind(0, 0, 2)];
+    elec[rind(0, 0, 2)] = elec[rind(0, 1, 2)];
 
-    if (quit_evolve == 0)
+    // forward step species
+    for (int alfa = 0; alfa < nspecies; alfa++)
     {
-        // forward step species
-        for (int alfa = 0; alfa < nspecies; alfa++)
-        {
-            species_ptrs[alfa]->step();
-        }
+        species_ptrs[alfa]->step();
     }
 }
 
@@ -710,7 +812,7 @@ int Plasma::cind(const int& row, const int& col, const int& nrows)
 // output function
 void Plasma::print_vals(const int& k, const int& skip, const bool& particles_flag)
 {
-    if ((k % skip == 0) && (quit_evolve == 0))
+    if (k % skip == 0)
     {
         std::ofstream elec_file("./output/lo_elec.txt", std::ofstream::out | std::ofstream::app);
         for (int i = 0; i < nx + 1; i++)

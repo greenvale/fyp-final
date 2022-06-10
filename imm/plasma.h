@@ -8,7 +8,7 @@
 
 namespace constants
 {
-  const double e0 = 1.0;//8.85418 * pow(10.0, -12);
+    const double e0 = 1.0;//8.85418 * pow(10.0, -12);
 	const double Kb = 1.0;//1.3806 * pow(10.0, -23);
 }
 
@@ -21,16 +21,12 @@ private:
   //running parameters
   std::string device_type;
 
-  int dt_reduce_factor;
-  int quit_evolve;
-
   //numerical scheme parameters
   int nspecies;
   int nx;
   double lx;
   double dx;
   double dt;
-  double dt_target;
   double* x_centre;
   double* x_face;
 
@@ -61,10 +57,10 @@ private:
   double outer_residual_norm;
   double* lo_residual;
   double lo_residual_norm;
-  double tol_lo_residual_norm     = pow(10.0, -6);
-  double tol_outer_residual_norm  = pow(10.0, -6);
-  int outer_max = 100;
-  int inner_max = 100;
+  double tol_lo_residual_norm     = pow(10.0, -8);
+  double tol_outer_residual_norm  = pow(10.0, -8);
+  int outer_max = 30;
+  int inner_max = 30;
   int matdim;
   int* ipiv;
 
@@ -79,8 +75,7 @@ public:
     const std::string& device_type,
     const int& _nspecies,
     const int& _nx,
-    const double& _lx,
-    const double& _dt
+    const double& _lx
   );
 
   ~Plasma();
@@ -107,7 +102,7 @@ public:
   void add_species_gpu_context(const int& alfa, const cl::Context& context);
   void init_lo();
 
-  void evolve(const bool&);
+  double evolve(const bool&, const double& dt_target);
   void update_A();
   void update_b();
   double solve_lo();

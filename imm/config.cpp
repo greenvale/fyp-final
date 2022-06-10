@@ -15,9 +15,9 @@ public:
   std::string push_kernel_path;
   std::string accumulator_kernel_name = "accumulate_moments_gpu";
   std::string push_kernel_name = "push_gpu";
-  int nspecies, nt, np, nx;
+  int nspecies, np, nx;
   std::vector<int> nv;
-  double lx, dt;
+  double lx, dt, time_total;
   std::vector<double> species_dens_avg, species_dens_perturb, species_vel_avg,
     species_vel_range, species_vel_perturb, species_charge, species_mass, species_T;
   std::vector<std::string> species_vel_profile, species_dens_perturb_profile, species_vel_perturb_profile, species_name;
@@ -73,7 +73,7 @@ public:
 
     double dx = lx / nx;
 
-    plasma_ptr = new Plasma(device_type, nspecies, nx, lx, dt);
+    plasma_ptr = new Plasma(device_type, nspecies, nx, lx);
 
     // x face and x centre values used in calculation of distributions
     double* x_face = new double[nx + 1];
@@ -102,22 +102,22 @@ public:
         v_centre[i] = v_min + i*(species_vel_range[alfa])/nv[alfa];
       }
 
-      // calculate fx for this species
-      for (int i = 0; i < nx; i++) {
-        if (species_dens_perturb_profile[alfa] == "sin")
-        {
-          perturb_factor = sin(2.0 * M_PI * x_centre[i] / lx);
+        // calculate fx for this species
+        for (int i = 0; i < nx; i++) {
+            if (species_dens_perturb_profile[alfa] == "sin")
+            {
+                perturb_factor = sin(2.0 * M_PI * x_centre[i] / lx);
+            }
+            else if (species_dens_perturb_profile[alfa] ==  "cos")
+            {
+                perturb_factor = cos(2.0 * M_PI * x_centre[i] / lx);
+            }
+            else
+            {
+                perturb_factor = 0.0;
+            }
+            fx[i] = species_dens_avg[alfa] + (species_dens_perturb[alfa] * perturb_factor);
         }
-        else if (species_dens_perturb_profile[alfa] ==  "cos")
-        {
-          perturb_factor = cos(2.0 * M_PI * x_centre[i] / lx);
-        }
-        else
-        {
-          perturb_factor = 0.0;
-        }
-    		fx[i] = species_dens_avg[alfa] + (species_dens_perturb[alfa] * perturb_factor);
-    	}
 
       // calculate fv for this species
       if (species_vel_profile[alfa] == "boltzmann")
@@ -173,25 +173,60 @@ public:
     //plasma_ptr->print_vals(0, skip, write_posvel);
 
     double start_time = omp_get_wtime();
+    double dt_evolve_target;
+    double dt_evolve;
+    double sim_time = 0.0;
 
-    for (int k = 0; k < nt; ++k)
+    int k = -1;
+
+    bool finish_flag = false;
+
+    while (finish_flag == false)
     {
-      std::cout << "=========== SOLVING TIMESTEP " << k+1 << " ===========" << std::endl;
-  		plasma_ptr->evolve(accelerate);
-      std::cout << "Finished outer Picard loop" << std::endl;
+        if (sim_time + dt >= time_total)
+        {
+            dt_evolve_target = time_total - sim_time;
+        }
+        else
+        {
+            // set target evolve dt as prescribed dt
+            dt_evolve_target = dt;
+        }
 
-      // print future (k+1/2 or k+1) values before forward stepping system
-      plasma_ptr->print_vals(k+1, skip, write_posvel);
+        // prevent round off error dt
+        if (dt_evolve_target > 0.00001)
+        {
+            k++;
+            std::cout << "=========== SOLVING TIMESTEP " << k+1 << " ===========" << std::endl;
+            dt_evolve = plasma_ptr->evolve(accelerate, dt_evolve_target);
+            std::cout << "Finished outer Picard loop" << std::endl;
 
-      // forward step system
-  		plasma_ptr->step();
+            // print future (k+1/2 or k+1) values before forward stepping system
+            plasma_ptr->print_vals(k+1, skip, write_posvel);
 
-      plasma_ptr->print_methods_tracker(0);
+            // forward step system
+            plasma_ptr->step();
+
+            // accumulate actual dt
+            sim_time += dt_evolve;
+
+            plasma_ptr->print_methods_tracker(0);
+        }
+        else
+        {
+            std::cout << "Prevented round off time: " << dt_evolve_target << std::endl;
+            finish_flag = true;
+        }
+
+        if (sim_time >= time_total)
+        {
+            finish_flag = true;
+        }
     }
 
     double end_time = omp_get_wtime();
 
-    std::vector<double> runtime_data = {end_time - start_time};
+    std::vector<double> runtime_data = {end_time - start_time, sim_time};
 
     return runtime_data;
   }
