@@ -6,7 +6,7 @@
 
 #include "species.h"
 
-void Species::push_gpu(const bool& accelerate)
+void Species::push_gpu(const int& accelerate)
 {
   int kernel_reduce_method = 1;
 

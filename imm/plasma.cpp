@@ -279,7 +279,7 @@ void Plasma::init_lo()
     - Solve LO system
     - Push particles in HO systems
 */
-double Plasma::evolve(const bool& accelerate, const double& dt_target)
+double Plasma::evolve(const int& accelerate, const double& dt_target)
 {
     // How should inconsistency error be dealt with (1 = drop time-step; 2 = recalculate electric field with Poisson with no drop in step)
     int INCONSISTENCY_FIX_METHOD = 1;

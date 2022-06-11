@@ -615,7 +615,14 @@ double*       _elec
 
         // check convergence or if Picard iterations have reached max
         if (fabs(_dsubpos - tmp) < pic_tol) {
-        pic_flag = true;
+            pic_flag = true;
+        }
+
+        if (pic_index > 1000)
+        {
+            pic_flag = true;
+            std::cout << "Could not solve dsubpos" << std::endl;
+            //std::cout << "Shape_lhface: " << _shape_lhface << "; shape_rhface: " << _shape_rhface << "; tmp: " << tmp << std::endl;
         }
 
         //std::cout << "dsubpos: " << tmp << std::endl;
@@ -657,7 +664,13 @@ void Species::solve_dsubt(
 
         // check convergence
         if (fabs(_dsubt - tmp) < pic_tol) {
-        pic_flag = true;
+            pic_flag = true;
+        }
+
+        if (pic_index > 1000)
+        {
+            pic_flag = true;
+            std::cout << "Could not solve dsubt" << std::endl;
         }
 
         //std::cout << "Solved dsubt: " << tmp << std::endl;
@@ -756,6 +769,62 @@ void Species::adaptive_push(
 direct particle push function
 -
 */
+void Species::fixed_iter_push(
+    // write:
+    int&          _method_flag,
+    double&       _accel,
+    double&       _dsubt,
+    double&       _dsubvel,
+    double&       _dsubpos,
+    int&          _dsubcell,
+    double&       _shape_lhface,
+    double&       _shape_rhface,
+    // read:
+    const double& _subt,
+    const double& _subpos,
+    const double& _subvel,
+    const double& _subcell,
+    const double& _dsubpos_lh,
+    const double& _dsubpos_rh,
+    double*       _elec
+)
+{
+    // calculate shapes manually as formulae not required
+    _shape_lhface = 0.5;
+    _shape_rhface = 0.5;
+
+    // calculate dsubpos given previously direction
+    _dsubpos = (double) _dsubcell * dx;
+
+    // get accel from electric field given shape functions and cell index
+    get_accel(_accel, _shape_lhface, _shape_rhface, _subcell, _elec);
+
+    // initialise running variables
+    double tmp = 0;
+
+    // Fixed iteration picard loop to solve for dsubt
+    for (int i = 0; i < fixed_iter_max; ++i)
+    {
+        // update dsubt
+        _dsubt = tmp;
+
+        // calculate dsubvel and dsubpos
+        tmp = _dsubpos / (_subvel + 0.5 * _dsubt * _accel);
+    }
+
+    // check convergence
+    if ((tmp > 0.0) && (fabs(_dsubt - tmp) < pic_tol) && (_dsubt + _subt <= dt)) {
+        _dsubt = tmp;
+        // calculate dsubvel
+        _dsubvel = _accel * _dsubt;
+        _method_flag = 2;
+    }
+    else
+    {
+        _method_flag = 0;
+    }
+}
+
 void Species::direct_push(
     // write:
     int&          _method_flag,
@@ -782,8 +851,8 @@ void Species::direct_push(
     double dsubt_soln2;
 
     // calculate shapes manually as formulae not required
-    _shape_lhface = 0.5 * (double)(1 + _dsubcell);
-    _shape_rhface = 0.5 * (double)(1 - _dsubcell);
+    _shape_lhface = 0.5;
+    _shape_rhface = 0.5;
 
     // calculate dsubpos given previously direction
     _dsubpos = (double) _dsubcell * dx;
@@ -944,7 +1013,7 @@ void Species::accumulate_avgmom(
 /*
 push particles with single thread
 */
-void Species::push_sthread(const bool& accelerate, const double& dt_new)
+void Species::push_sthread(const int& accelerate, const double& dt_new)
 {
     // initialise run-time variables
     bool   sub_flag;
@@ -1007,21 +1076,39 @@ void Species::push_sthread(const bool& accelerate, const double& dt_new)
         */
 
         // check if accelerate block is being used and is needed; note method not valid for first sub-cycle iteration
-        if ((accelerate == true) && (dsubcell != 0) && (sub_index > 0))
+        if ((accelerate > 0) && (dsubcell != 0) && (sub_index > 0))
         {
             //std::cout << "Trying accelerator" << std::endl;
             // direct push
             // if direct solution possible, method flag returns 2, else returns 0 meaning adaptive method needed
-            direct_push(
-            method_flag,    accel,
-            dsubt,          dsubvel,
-            dsubpos,        dsubcell,
-            shape_lhface,   shape_rhface,
-            subt,           subpos,
-            subvel,         subcell,
-            dsubpos_lh,     dsubpos_rh,
-            elec
-            );
+            if (accelerate == 1)
+            {
+                // DIRECT ACCELERATED PUSH
+                direct_push(
+                    method_flag,    accel,
+                    dsubt,          dsubvel,
+                    dsubpos,        dsubcell,
+                    shape_lhface,   shape_rhface,
+                    subt,           subpos,
+                    subvel,         subcell,
+                    dsubpos_lh,     dsubpos_rh,
+                    elec
+                );
+            }
+            else if(accelerate == 2)
+            {
+                // FIXED ITERATION ACCELERATED PUSH
+                fixed_iter_push(
+                    method_flag,    accel,
+                    dsubt,          dsubvel,
+                    dsubpos,        dsubcell,
+                    shape_lhface,   shape_rhface,
+                    subt,           subpos,
+                    subvel,         subcell,
+                    dsubpos_lh,     dsubpos_rh,
+                    elec
+                );
+            }
         }
         else
         {
@@ -1035,14 +1122,14 @@ void Species::push_sthread(const bool& accelerate, const double& dt_new)
             //std::cout << "Particle " << p << " adaptive push " << " subt: " << subt << std::endl;
 
             adaptive_push(
-            method_flag,    accel,
-            dsubt,          dsubvel,
-            dsubpos,        dsubcell,
-            shape_lhface,   shape_rhface,
-            subt,           subpos,
-            subvel,         subcell,
-            dsubpos_lh,     dsubpos_rh,
-            elec
+                method_flag,    accel,
+                dsubt,          dsubvel,
+                dsubpos,        dsubcell,
+                shape_lhface,   shape_rhface,
+                subt,           subpos,
+                subvel,         subcell,
+                dsubpos_lh,     dsubpos_rh,
+                elec
             );
 
             //std::cout << "subvel: " << subvel << ", accel: " << accel << std::endl;

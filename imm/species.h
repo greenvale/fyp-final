@@ -64,14 +64,15 @@ private:
   // ====================================================
 
   // tolerances
-  double pic_tol = pow(10.0,-10);
+  double pic_tol = pow(10.0,-6);
+  int fixed_iter_max = 5;
 
   // runtime data collection variables
   long int* methods_tracker;
   long int total_substeps;
 
   // openmp runtime variables
-  int target_num_threads = 4;
+  int target_num_threads = 2;
   int chunksize = 10;
 
   // opencl runtime variables
@@ -156,6 +157,26 @@ void adaptive_push(
 );
 
 void direct_push(
+  // write:
+  int&          _method_flag,
+  double&       _accel,
+  double&       _dsubt,
+  double&       _dsubvel,
+  double&       _dsubpos,
+  int&          _dsubcell,
+  double&       _shape_lhface,
+  double&       _shape_rhface,
+  // read:
+  const double& _subt,
+  const double& _subpos,
+  const double& _subvel,
+  const double& _subcell,
+  const double& _dsubpos_lh,
+  const double& _dsubpos_rh,
+  double*       _elec
+);
+
+void fixed_iter_push(
   // write:
   int&          _method_flag,
   double&       _accel,
@@ -263,9 +284,9 @@ void accumulate_avgmom_with_single(
 );
 
 // push functions
-void push_sthread(const bool& accelerate, const double& dt_new);
-void push_mthread(const bool& accelerate);
-void push_gpu(const bool& accelerate);
+void push_sthread(const int& accelerate, const double& dt_new);
+void push_mthread(const int& accelerate);
+void push_gpu(const int& accelerate);
 
 void step();
 void step_mthread();

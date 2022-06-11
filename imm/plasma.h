@@ -57,8 +57,8 @@ private:
   double outer_residual_norm;
   double* lo_residual;
   double lo_residual_norm;
-  double tol_lo_residual_norm     = pow(10.0, -8);
-  double tol_outer_residual_norm  = pow(10.0, -8);
+  double tol_lo_residual_norm     = pow(10.0, -6);
+  double tol_outer_residual_norm  = pow(10.0, -6);
   int outer_max = 30;
   int inner_max = 30;
   int matdim;
@@ -102,7 +102,7 @@ public:
   void add_species_gpu_context(const int& alfa, const cl::Context& context);
   void init_lo();
 
-  double evolve(const bool&, const double& dt_target);
+  double evolve(const int&, const double& dt_target);
   void update_A();
   void update_b();
   double solve_lo();

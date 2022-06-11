@@ -168,7 +168,7 @@ public:
   }
 
   // run plasma evolution loop
-  std::vector<double> run_plasma(bool accelerate, int skip, bool write_posvel)
+  std::vector<double> run_plasma(int accelerate, int skip, bool write_posvel)
   {
     //plasma_ptr->print_vals(0, skip, write_posvel);
 

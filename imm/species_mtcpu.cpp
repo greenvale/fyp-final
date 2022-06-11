@@ -6,7 +6,7 @@
 
 #include "species.h"
 
-void Species::push_mthread(const bool& accelerate)
+void Species::push_mthread(const int& accelerate)
 {
   // set avgmom vector to zeros
   for (int i = 0; i < nx + 1; ++i)
@@ -16,7 +16,10 @@ void Species::push_mthread(const bool& accelerate)
 
   omp_set_num_threads(target_num_threads);
 
-  #pragma omp parallel
+  double* avgmom_t;
+  int num_threads;
+
+  #pragma omp parallel default(none) shared(accelerate, pos, vel, pos_new, vel_new, num_threads, std::cout) private(avgmom_t)
   {
     // initialise run-time variables
     bool    sub_flag;
@@ -39,9 +42,10 @@ void Species::push_mthread(const bool& accelerate)
     double  shape_lhface;
     double  shape_rhface;
 
+    avgmom_t = new double[nx + 1];
+
     int p;
     int id;
-    int num_threads;
     int num_threads_t;
 
     // initialise local arrays
@@ -156,11 +160,6 @@ void Species::push_mthread(const bool& accelerate)
       // transfer sub-cycle new values to global new values at end of particle evolution
       pos_new[p]  = subpos_new;
       vel_new[p]  = subvel_new;
-
-      #pragma omp critical
-      {
-        //std::cout << "Thread " << id << ": " << "p = " << p << ", pos new: " << pos_new[p] << "\t";// << std::endl;
-      }
     }
 
     // reduce avgmom components between threads
