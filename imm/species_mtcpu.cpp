@@ -49,17 +49,13 @@ void Species::push_mthread(const int& accelerate)
     int num_threads_t;
 
     // initialise local arrays
-    double* avgmom_t = new double[nx + 1];
-    double* elec_t   = new double[2 * (nx + 1)];
+    //double* avgmom_t = new double[nx + 1];
+    //double* elec_t   = new double[2 * (nx + 1)];
 
     for (int i = 0; i < nx + 1; ++i)
     {
       // set avgmom to zero for accumulation
       avgmom_t[i] = 0.0;
-
-      // copy electric field for current and future timesteps
-      elec_t[2*i + 0]   = elec[2*i + 0];
-      elec_t[2*i + 1]   = elec[2*i + 1];
     }
 
     // get thread id and number of threads
@@ -103,20 +99,36 @@ void Species::push_mthread(const int& accelerate)
         */
 
         // check if accelerate block is being used and is needed; note method not valid for first sub-cycle iteration
-        if ((accelerate == true) && (dsubcell != 0) && (sub_index > 0))
+        if ((accelerate > 0) && (dsubcell != 0) && (sub_index > 0))
         {
-          // direct push
-          // if direct solution possible, method flag returns 2, else returns 0 meaning adaptive method needed
-          direct_push(
-            method_flag,    accel,
-            dsubt,          dsubvel,
-            dsubpos,        dsubcell,
-            shape_lhface,   shape_rhface,
-            subt,           subpos,
-            subvel,         subcell,
-            dsubpos_lh,     dsubpos_rh,
-            elec_t
-          );
+            if (accelerate == 1)
+            {
+                // direct push
+                // if direct solution possible, method flag returns 2, else returns 0 meaning adaptive method needed
+                direct_push(
+                    method_flag,    accel,
+                    dsubt,          dsubvel,
+                    dsubpos,        dsubcell,
+                    shape_lhface,   shape_rhface,
+                    subt,           subpos,
+                    subvel,         subcell,
+                    dsubpos_lh,     dsubpos_rh,
+                    elec
+                );
+            }
+            else if (accelerate == 2)
+            {
+                direct_push(
+                    method_flag,    accel,
+                    dsubt,          dsubvel,
+                    dsubpos,        dsubcell,
+                    shape_lhface,   shape_rhface,
+                    subt,           subpos,
+                    subvel,         subcell,
+                    dsubpos_lh,     dsubpos_rh,
+                    elec
+                );
+            }
         }
         else
         {
@@ -135,7 +147,7 @@ void Species::push_mthread(const int& accelerate)
             subt,           subpos,
             subvel,         subcell,
             dsubpos_lh,     dsubpos_rh,
-            elec_t
+            elec
           );
         }
 
@@ -171,7 +183,7 @@ void Species::push_mthread(const int& accelerate)
       }
     }
 
-    delete[] avgmom_t, elec_t;
+    delete[] avgmom_t;
   }
 
   // periodic boundary conditions

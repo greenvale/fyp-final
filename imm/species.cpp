@@ -618,10 +618,10 @@ double*       _elec
             pic_flag = true;
         }
 
-        if (pic_index > 1000)
+        if (pic_index > max_picard)
         {
             pic_flag = true;
-            std::cout << "Could not solve dsubpos" << std::endl;
+            //std::cout << "Could not solve dsubpos" << std::endl;
             //std::cout << "Shape_lhface: " << _shape_lhface << "; shape_rhface: " << _shape_rhface << "; tmp: " << tmp << std::endl;
         }
 
@@ -667,10 +667,10 @@ void Species::solve_dsubt(
             pic_flag = true;
         }
 
-        if (pic_index > 1000)
+        if (pic_index > max_picard)
         {
             pic_flag = true;
-            std::cout << "Could not solve dsubt" << std::endl;
+            //std::cout << "Could not solve dsubt" << std::endl;
         }
 
         //std::cout << "Solved dsubt: " << tmp << std::endl;

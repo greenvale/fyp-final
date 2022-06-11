@@ -64,8 +64,9 @@ private:
   // ====================================================
 
   // tolerances
-  double pic_tol = pow(10.0,-6);
+  double pic_tol = pow(10.0,-5);
   int fixed_iter_max = 5;
+  int max_picard = 5;
 
   // runtime data collection variables
   long int* methods_tracker;
