@@ -65,7 +65,7 @@ private:
 
   // tolerances
   double pic_tol = pow(10.0,-5);
-  int fixed_iter_max = 5;
+  int fixed_iter_max = 4;
   int max_picard = 5;
 
   // runtime data collection variables
@@ -73,7 +73,7 @@ private:
   long int total_substeps;
 
   // openmp runtime variables
-  int target_num_threads = 2;
+  int target_num_threads = 1;
   int chunksize = 10;
 
   // opencl runtime variables

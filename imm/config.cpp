@@ -217,11 +217,8 @@ public:
 
             // Print dt
             std::ofstream dt_file("./output/dt.txt", std::ofstream::out | std::ofstream::app);
-            for (int i = 0; i < nx + 1; i++)
-            {
-                dt_file.width(15);
-                dt_file << dt_evolve << "\t";
-            }
+            dt_file.width(15);
+            dt_file << dt_evolve << "\t";
             dt_file.close();
         }
         else

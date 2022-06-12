@@ -40,12 +40,12 @@ int main()
 
   Config landau1;
   landau1.nspecies = 1;
-  landau1.np = (int) 100000;
+  landau1.np = (int) 10000;
   landau1.nx = 30;
   landau1.nv = { 50 , 50 };
   landau1.lx = 4.0 * M_PI;
   landau1.dt = 1.0; //1.0 * 0.01 * 1.467;
-  landau1.time_total = 100*landau1.dt;
+  landau1.time_total = 2000;
   landau1.species_name = { "electron", "ion" };
   landau1.species_dens_avg = { 1.0, 1.0 };
   landau1.species_dens_perturb = { 0.1, 0.0 };
@@ -110,13 +110,13 @@ int main()
   int test_config_index = 1;
 
   // use direct method/fixed method accelerator?
-  int accelerate = 1;
+  int accelerate = 0;
 
   // gpu kernel path
   configs[test_config_index].push_kernel_path =  "./test_kernel.cl";
 
   // create plasma object and associated species objects
-  configs[test_config_index].create_plasma("cpu_mthread");
+  configs[test_config_index].create_plasma("cpu_sthread");
 
   std::vector<double>runtime_data = configs[test_config_index].run_plasma(accelerate, skip, write_posvel);
 
