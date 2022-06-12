@@ -143,7 +143,7 @@ local        float* avgmom_local_expanded
         }
       }
       /* ========================================================= */
-      /* ADAPTIVE METHOD */
+      /* FIXED ITERATION METHOD */
       else if (par.accelerate == 2)
       {
         tmp = 0.0;
