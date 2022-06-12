@@ -95,7 +95,7 @@ local        float* avgmom_local_expanded
     dsubpos_rh = dsubpos_lh + dx;
 
     /* ========================================================= */
-    /* DIRECT PUSH */
+    /* ACCELERATOR */
     if ((par.accelerate > 0) && (dsubcell != 0) && (sub_index > 0))
     {
       shape_lhface = 0.5;
@@ -105,6 +105,8 @@ local        float* avgmom_local_expanded
       accel += (elec_d[2*subcell + 2 + 0] + elec_d[2*subcell + 2 + 1]) * shape_rhface;
       accel *= 0.5 * par.charge / par.mass;
 
+      /* ========================================================= */
+      /* DIRECT METHOD */
       if (par.accelerate == 1)
       {
         discrim = subvel*subvel + 2.0*accel*dsubpos;
@@ -140,6 +142,8 @@ local        float* avgmom_local_expanded
           method_flag = 0;
         }
       }
+      /* ========================================================= */
+      /* ADAPTIVE METHOD */
       else if (par.accelerate == 2)
       {
         tmp = 0.0;
@@ -150,10 +154,9 @@ local        float* avgmom_local_expanded
           tmp = dsubpos / (subvel + 0.5*dsubt*accel);
         }
 
-        method_flag = 2*((tmp > 0.0) && () && (dsubt + subt <= par.dt));
+        method_flag = 2*((tmp > 0.0) && (fabs(dsubt - tmp) < par.pic_tol) && (dsubt + subt <= par.dt));
         dsubt = tmp;
-        dsubtvel = accel * dsubt;
-
+        dsubvel = accel * dsubt;
       }
     }
     else
